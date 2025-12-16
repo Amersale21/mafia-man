@@ -474,8 +474,12 @@ export class Game {
     // rebuild fresh game objects for current template
     this.resetLevelStateFromTemplate();
 
-    this.isFullMode = this.ui.modeToggle?.checked ?? false;
-    await this.level.rebuild(this.isFullMode);
+    const wantFull = !!this.ui.modeToggle?.checked;
+    this.isFullMode = wantFull;
+
+    // rebuild the new Level in the correct mode
+    await this.level.rebuild(wantFull);
+    this.level.setExitUnlocked(this.level.exitUnlocked);
 
     this.engine.add(this.level);
     this.engine.add(this.player);
