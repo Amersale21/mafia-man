@@ -9,9 +9,12 @@
 
 // Walls - White washed brick
 // https://polyhaven.com/a/whitewashed_brick
+// Enemy -
 
 import { Level } from "./level.js";
 import { Player } from "./player.js";
+import { Enemy } from "./enemy.js";
+import * as THREE from "three";
 
 export class Game {
   constructor({ engine, ui }) {
@@ -20,6 +23,17 @@ export class Game {
     // Do not start until user hits play
     this.started = false;
     this.difficulty = "easy";
+    // easy mode will have no enemies
+    this.ended = false;
+
+    // system object that Engine can add safely
+    this._system = {
+      root: new THREE.Object3D(), // empty placeholder so scene.add works
+      timeStep: (dt, t) => this._checkEndStates(),
+    };
+
+    this.engine.add(this._system);
+    this.enemy = null;
     // 1) Define the grid FIRST
     // keep a template so we can reset later
     this.levelTemplate = [
@@ -173,10 +187,29 @@ export class Game {
       this.level.isExitTile(this.player.r, this.player.c)
     ) {
       this._won = true;
+      // Pause enemy character
+      this.ended = true;
+      if (this.enemy) this.enemy.setPaused(true);
       this.ui.setStatus(`You escaped! Final score: ${this.score}`);
       this.ui.showWin(this.score);
       return true;
     }
+
+    // lose condition (enemy reaches player tile)
+    if (
+      this.enemy &&
+      this.enemy.r === this.player.r &&
+      this.enemy.c === this.player.c
+    ) {
+      this._won = true; // reuse to freeze movement
+      this.ui.setStatus("You got caught!");
+      // NEED TO ADD LOSE SCREEN NEXT
+      this.ui.showWin(0);
+      if (this.ui.winText)
+        this.ui.winText.textContent = "You got caught. Try again.";
+      return true;
+    }
+
     return true;
   }
 
@@ -211,6 +244,27 @@ export class Game {
     this.player.setGridPos(pr, pc);
   }
 
+  // see if killer touched player
+  _checkEndStates() {
+    // don’t do anything if game hasn’t started or already ended
+    if (!this.started || this.ended) return;
+
+    // lose: enemy touches player
+    if (
+      this.enemy &&
+      this.enemy.r === this.player.r &&
+      this.enemy.c === this.player.c
+    ) {
+      this.ended = true;
+      this._won = true; // freezes player movement in your code
+      this.ui.setStatus("You got caught!");
+      this.ui.showWin(0);
+      if (this.ui.winText)
+        this.ui.winText.textContent = "You got caught. Try again.";
+      return;
+    }
+  }
+
   async resetGame() {
     // stop win state + hide overlay
     this._won = false;
@@ -219,12 +273,13 @@ export class Game {
     // reset score
     this.score = 0;
     this.ui.setScore(this.score);
-
+    // game just started so removed the ended flag
+    this.ended = false;
     // remove old objects from scene
-    // (we added their root meshes to engine.scene)
     if (this.level?.root) this.engine.scene.remove(this.level.root);
     if (this.player?.root) this.engine.scene.remove(this.player.root);
-
+    if (this.enemy?.root) this.engine.scene.remove(this.enemy.root);
+    this.enemy = null;
     // rebuild fresh game objects
     this.resetLevelStateFromTemplate();
 
@@ -235,6 +290,24 @@ export class Game {
     // add back to scene
     this.engine.add(this.level);
     this.engine.add(this.player);
+    // spawn enemy for medium/hard
+    if (this._enemyEnabled()) {
+      const stepInterval = this._enemyInterval();
+
+      this.enemy = new Enemy({
+        level: this.level,
+        stepInterval,
+        getTargetRC: () => ({ r: this.player.r, c: this.player.c }),
+      });
+
+      // pick spawn far from player
+      const spawn = this.enemy.pickSpawnFarFrom(this.player.r, this.player.c);
+      this.enemy.setGridPos(spawn.r, spawn.c);
+
+      this.engine.add(this.enemy);
+    } else {
+      this.enemy = null;
+    }
 
     // lock exit visually
     this.level.setExitUnlocked(false);
@@ -242,5 +315,14 @@ export class Game {
     this.ui.setStatus(
       this.isFullMode ? "Full mode ready." : "Prototype ready."
     );
+  }
+
+  // ENEMY LOGIC
+  _enemyEnabled() {
+    return this.difficulty === "medium" || this.difficulty === "hard";
+  }
+
+  _enemyInterval() {
+    return this.difficulty === "hard" ? 0.25 : 0.45; // hard faster
   }
 }
