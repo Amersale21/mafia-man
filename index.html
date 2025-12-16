@@ -1,1 +1,52 @@
-<p>hi</p>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mafia Man</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+      #hud {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        font-family: system-ui, sans-serif;
+        background: rgba(0, 0, 0, 0.5);
+        color: white;
+        padding: 8px 10px;
+        border-radius: 8px;
+      }
+      #container {
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+
+    <!-- Import map: no bundler, works on GitHub Pages -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+        }
+      }
+    </script>
+  </head>
+
+  <body>
+    <div id="hud">
+      <div><b>Group ID:</b> 0711</div>
+      <div>
+        <label><input id="modeToggle" type="checkbox" /> Full mode</label>
+      </div>
+      <div id="status">Loading…</div>
+    </div>
+    <div id="container"></div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
