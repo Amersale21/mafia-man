@@ -17,7 +17,9 @@ export class Game {
   constructor({ engine, ui }) {
     this.engine = engine;
     this.ui = ui;
-
+    // Do not start until user hits play
+    this.started = false;
+    this.difficulty = "easy";
     // 1) Define the grid FIRST
     // keep a template so we can reset later
     this.levelTemplate = [
@@ -36,6 +38,8 @@ export class Game {
 
     // 5) add movement for the player - event listener
     this._onKeyDown = (e) => {
+      // prevent movement in menus
+      if (!this.started) return;
       if (
         ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)
       ) {
@@ -51,10 +55,25 @@ export class Game {
       else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D")
         this.movePlayer(0, 1);
     };
-    // 7) Replay level feature
+    // 7) Replay level feature, or back to menu. Going to add a next level feature as well.
     if (this.ui.btnReplay) {
       this.ui.btnReplay.addEventListener("click", async () => {
         await this.resetGame();
+      });
+    }
+    // Back to main menu
+    if (this.ui.btnBackToMenu) {
+      this.ui.btnBackToMenu.addEventListener("click", () => {
+        this._won = false;
+        this.started = false;
+
+        // hide win screen
+        this.ui.hideWin();
+
+        // show main menu again
+        this.ui.showMenu();
+
+        this.ui.setStatus("Choose difficulty and mode.");
       });
     }
     window.addEventListener("keydown", this._onKeyDown, { passive: false });
@@ -106,9 +125,31 @@ export class Game {
         );
       });
     }
+
+    // Start in menu, game begins when user presses Start
+    this.ui.showMenu?.();
+
+    if (this.ui.btnStart) {
+      this.ui.btnStart.addEventListener("click", async () => {
+        this.difficulty = this.ui.getSelectedDifficulty?.() ?? "easy";
+
+        // Apply menu-chosen mode to the existing checkbox (so your existing pipeline works)
+        const startMode = this.ui.getSelectedStartMode?.() ?? "prototype";
+        if (this.ui.modeToggle)
+          this.ui.modeToggle.checked = startMode === "full";
+
+        this.ui.hideMenu?.();
+        this.started = true;
+
+        await this.startPrototype(); // sets camera + resetGame
+        this.ui.setStatus(`Started: ${this.difficulty.toUpperCase()}`);
+      });
+    }
   }
 
   movePlayer(dr, dc) {
+    // cant move under these conditions
+    if (!this.started) return false;
     if (this._won) return false;
     const moved = this.player.tryMove(dr, dc);
     if (!moved) return false;

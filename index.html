@@ -18,6 +18,43 @@
   </head>
 
   <body>
+    <!-- Main Menu -->
+    <div id="menuScreen">
+      <div id="menuCard">
+        <h1 id="menuTitle">Mafia Man</h1>
+        <p id="menuSubtitle">Collect all coins, then escape.</p>
+
+        <div class="menuRow">
+          <label for="difficultySelect"><b>Difficulty</b></label>
+          <select id="difficultySelect">
+            <option value="easy">Easy (no AI)</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+
+        <div class="menuRow">
+          <label><b>Mode</b></label>
+          <div class="menuInline">
+            <label class="radioPill">
+              <input type="radio" name="startMode" value="prototype" checked />
+              Prototype
+            </label>
+            <label class="radioPill">
+              <input type="radio" name="startMode" value="full" />
+              Full
+            </label>
+          </div>
+        </div>
+
+        <button id="btnStart">Start Game</button>
+
+        <div class="menuHint">
+          Controls: WASD / Arrow keys • Touch buttons on mobile
+        </div>
+      </div>
+    </div>
+
     <div id="hud">
       <div id="titleRow">Mafia Man — Group ID: 0711</div>
       <div>
@@ -34,6 +71,7 @@
         <h1>You are a valid mafia member.</h1>
         <p id="winText">Your score was: 0</p>
         <button id="btnReplay">Replay Level 1</button>
+        <button id="btnBackToMenu">Back to Menu</button>
       </div>
     </div>
     <div id="touchControls">
