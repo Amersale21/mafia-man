@@ -71,6 +71,26 @@ export class Game {
           "#########################",
         ],
       },
+      {
+        name: "Level 3",
+        grid: [
+          "#############################",
+          "#P...........#.............E#",
+          "#.#####.#####.#.#####.#####.#",
+          "#.......#.....#.....#.......#",
+          "###.###.#.###.###.#.###.###.#",
+          "#.....#.#...#.....#...#.#...#",
+          "#.###.#.###.#######.###.#.###",
+          "#...#.#.....#...#...#.....#.#",
+          "###.#.#####.#.#.#.#####.###.#",
+          "#...#.....#.#.#.#.....#.....#",
+          "#.#####.#.#.#.#.###.#.#####.#",
+          "#.....#.#.#...#.....#.#.....#",
+          "#.###.#.#.#####.#####.#.###.#",
+          "#.....#.....K.........#.....#",
+          "#############################",
+        ],
+      },
     ];
 
     this.levelIndex = 0;
@@ -236,6 +256,21 @@ export class Game {
     } else {
       this.ui.setStatus(`Player: (${this.player.r}, ${this.player.c})`);
     }
+    // knife pickup (Level 3 behavior)
+    if (
+      this.levelIndex === 2 &&
+      this.level.collectKnifeAt(this.player.r, this.player.c)
+    ) {
+      this.ui.setStatus("Picked up the knife! One enemy has been taken out.");
+
+      // remove exactly ONE enemy if any exist
+      const victim = this.enemies.pop();
+      if (victim) {
+        victim.setPaused(true);
+        if (victim.root) this.engine.scene.remove(victim.root);
+      }
+    }
+
     // unlock exit when all coins are collected
     if (!this.level.exitUnlocked && this.level.coinCount === 0) {
       this.level.setExitUnlocked(true);
@@ -305,7 +340,15 @@ export class Game {
     }
 
     // recreate level from fresh grid
-    this.level = new Level(this.grid, 1);
+    const level3Textures =
+      this.levelIndex === 2
+        ? {
+            floor: "./assets/textures/gold_color.jpg",
+            wall: "./assets/textures/wall2.jpg",
+          }
+        : null;
+
+    this.level = new Level(this.grid, 1, level3Textures);
 
     // recreate player bound to this.level
     this.player = new Player({ level: this.level });
@@ -392,11 +435,23 @@ export class Game {
           spawn = enemy.pickSpawnFarFrom(this.player.r, this.player.c);
         }
 
-        // IMPORTANT: avoid two killers spawning on same tile
+        // avoid two killers spawning on same tile
         const occupied = new Set(this.enemies.map((e) => `${e.r},${e.c}`));
         let safety = 0;
-        while (occupied.has(`${spawn.r},${spawn.c}`) && safety < 50) {
-          spawn = enemy.pickSpawnFarFrom(this.player.r, this.player.c);
+
+        while (occupied.has(`${spawn.r},${spawn.c}`) && safety < 80) {
+          // If deterministic far-spawn collides, switch to RNG spawn to break ties
+          if (enemy.pickSpawnRandomAtLeastStepsAway) {
+            // keep them reasonably far from player but allow variety
+            spawn = enemy.pickSpawnRandomAtLeastStepsAway(
+              this.player.r,
+              this.player.c,
+              4
+            );
+          } else {
+            // fallback
+            spawn = enemy.pickSpawnFarFrom(this.player.r, this.player.c);
+          }
           safety++;
         }
 
@@ -437,8 +492,11 @@ export class Game {
 
   _enemyCount() {
     if (!this._enemyEnabled()) return 0;
-    // Level 1 => 1 killer, Level 2+ => 2 killers
-    return this.levelIndex === 0 ? 1 : 2;
+
+    // Level 1 => 1, Level 2 => 2, Level 3 => 3
+    if (this.levelIndex === 0) return 1;
+    if (this.levelIndex === 1) return 2;
+    return 3;
   }
 
   _enemyTouchesPlayer() {

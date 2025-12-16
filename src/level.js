@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 export class Level {
-  constructor(grid, tileSize = 1) {
+  constructor(grid, tileSize = 1, textures = null) {
     this.grid = grid;
     this.tileSize = tileSize;
     this.root = new THREE.Group();
@@ -17,6 +17,9 @@ export class Level {
     // Keep references if we want to remove coins later
     this.coinMeshes = new Map(); // key "r,c" -> mesh
     this.coinCount = 0;
+    // Knife pickup (Level 3 only)
+    this.knifeMeshes = new Map();
+    this.hasKnife = false;
 
     // Tile stays grey until all coins are picked up
     // When all coins picked up, you can win the game
@@ -29,6 +32,7 @@ export class Level {
     this._texLoader = null;
     this._floorTex = null;
     this._wallTex = null;
+    this.textures = textures;
     // Add more effects for the full mode.
     this.isFullMode = false;
 
@@ -66,9 +70,18 @@ export class Level {
     this._teleportTiles = [];
     this._teleportTimer = 0;
 
+    this.knifeMeshes.clear();
+    this.hasKnife = false;
+
     const wallMat = new THREE.MeshStandardMaterial({ color: 0x3b3b3b });
     const floorMat = new THREE.MeshStandardMaterial({ color: 0x2a3340 });
     const coinMat = new THREE.MeshStandardMaterial({ color: 0xffd34d });
+
+    //knife geometry
+    const knifeMat = new THREE.MeshStandardMaterial({ color: 0xdddddd });
+    const knifeGeom = new THREE.BoxGeometry(0.35, 0.05, 0.08); // silly knife blade
+    const handleGeom = new THREE.BoxGeometry(0.12, 0.06, 0.09);
+    const handleMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
 
     const floorGeom = new THREE.PlaneGeometry(this.tileSize, this.tileSize);
     const wallGeom = new THREE.BoxGeometry(
@@ -119,6 +132,42 @@ export class Level {
           this.root.add(exit);
 
           this.exitMesh = exit;
+        } else if (cell === "K") {
+          // blade + handle
+          const blade = new THREE.Mesh(knifeGeom, knifeMat);
+          const handle = new THREE.Mesh(handleGeom, handleMat);
+
+          // exaggerate handle so silhouette reads clearly
+          handle.position.set(-0.32, 0, 0);
+          blade.position.set(0.08, 0, 0);
+
+          const knife = new THREE.Group();
+          knife.add(blade);
+          knife.add(handle);
+
+          // --- VISIBILITY FIXES ---
+          // stand upright instead of flat
+          knife.rotation.x = 0;
+
+          // rotate sideways so it has a profile
+          knife.rotation.y = Math.PI / 2;
+
+          // slight tilt for visual interest + readability
+          knife.rotation.z = Math.PI / 8;
+
+          // make it larger so it’s obvious
+          knife.scale.set(1.5, 1.5, 1.5);
+
+          const root = new THREE.Group();
+          root.position.set(x, 0.22, z); // lift off ground so it’s visible
+          root.add(knife);
+
+          this.root.add(root);
+          this.knifeMeshes.set(`${r},${c}`, {
+            root,
+            spin: knife,
+            baseY: 0.22,
+          });
         }
       }
     }
@@ -138,6 +187,9 @@ export class Level {
     this.coinMeshes.clear();
     this.coinCount = 0;
     this.exitMesh = null;
+
+    this.knifeMeshes.clear();
+    this.hasKnife = false;
 
     const floorMat = new THREE.MeshStandardMaterial({
       map: this._floorTex,
@@ -163,6 +215,22 @@ export class Level {
       this.tileSize,
       this.tileSize
     );
+
+    const knifeGeom = new THREE.BoxGeometry(0.34, 0.04, 0.1); // blade
+    const handleGeom = new THREE.BoxGeometry(0.18, 0.06, 0.12); // handle
+
+    const knifeMat = new THREE.MeshStandardMaterial({
+      color: 0xd9d9d9, // silver blade
+      roughness: 0.35,
+      metalness: 0.8,
+    });
+
+    const handleMat = new THREE.MeshStandardMaterial({
+      color: 0x2b2b2b, // dark handle
+      roughness: 0.9,
+      metalness: 0.05,
+    });
+
     const coinGeom = new THREE.CylinderGeometry(0.18, 0.18, 0.08, 16);
     await this.loadCoinModelOnce();
     for (let r = 0; r < this.grid.length; r++) {
@@ -204,6 +272,42 @@ export class Level {
           exit.position.set(x, 0.05, z);
           this.root.add(exit);
           this.exitMesh = exit;
+        } else if (cell === "K") {
+          // blade + handle
+          const blade = new THREE.Mesh(knifeGeom, knifeMat);
+          const handle = new THREE.Mesh(handleGeom, handleMat);
+
+          // exaggerate handle so silhouette reads clearly
+          handle.position.set(-0.32, 0, 0);
+          blade.position.set(0.08, 0, 0);
+
+          const knife = new THREE.Group();
+          knife.add(blade);
+          knife.add(handle);
+
+          // --- VISIBILITY FIXES ---
+          // stand upright instead of flat
+          knife.rotation.x = 0;
+
+          // rotate sideways so it has a profile
+          knife.rotation.y = Math.PI / 2;
+
+          // slight tilt for visual interest + readability
+          knife.rotation.z = Math.PI / 8;
+
+          // make it larger so it’s obvious
+          knife.scale.set(1.5, 1.5, 1.5);
+
+          const root = new THREE.Group();
+          root.position.set(x, 0.22, z); // lift off ground so it’s visible
+          root.add(knife);
+
+          this.root.add(root);
+          this.knifeMeshes.set(`${r},${c}`, {
+            root,
+            spin: knife,
+            baseY: 0.22,
+          });
         }
       }
     }
@@ -242,6 +346,19 @@ export class Level {
     return true;
   }
 
+  collectKnifeAt(r, c) {
+    const key = `${r},${c}`;
+    const entry = this.knifeMeshes.get(key);
+    if (!entry) return false;
+
+    this.root.remove(entry.root);
+    this.knifeMeshes.delete(key);
+
+    this.grid[r][c] = " "; // tile becomes empty
+    this.hasKnife = true; // level remembers
+    return true;
+  }
+
   setExitUnlocked(unlocked) {
     this.exitUnlocked = unlocked;
     if (this.exitMesh) {
@@ -268,6 +385,11 @@ export class Level {
         // glTF model: Y spin is usually what you want
         entry.spin.rotation.y += dt * 2.0;
       }
+    }
+
+    for (const entry of this.knifeMeshes.values()) {
+      entry.root.position.y = entry.baseY + 0.04 * Math.sin(t * 5.0);
+      entry.spin.rotation.y += dt * 2.5;
     }
     // Teleport pad effect: Full mode only, only when exit is unlocked
     if (this.isFullMode && this.exitUnlocked && this.exitMesh) {
@@ -304,17 +426,25 @@ export class Level {
   ensureTexturesLoaded() {
     if (this._floorTex && this._wallTex) return;
 
-    // lazy-create loader only when Full mode is first used
     if (!this._texLoader) this._texLoader = new THREE.TextureLoader();
 
-    this._floorTex = this._texLoader.load("./assets/textures/floor.jpg");
-    this._wallTex = this._texLoader.load("./assets/textures/wall.jpg");
+    // DEFAULTS (Level 1 & 2)
+    let floorPath = "./assets/textures/floor.jpg";
+    let wallPath = "./assets/textures/wall.jpg";
 
-    // make them tile nicely
+    // OVERRIDE (Level 3 only)
+    if (this.textures) {
+      if (this.textures.floor) floorPath = this.textures.floor;
+      if (this.textures.wall) wallPath = this.textures.wall;
+    }
+
+    this._floorTex = this._texLoader.load(floorPath);
+    this._wallTex = this._texLoader.load(wallPath);
+
+    // tile nicely
     this._floorTex.wrapS = this._floorTex.wrapT = THREE.RepeatWrapping;
     this._wallTex.wrapS = this._wallTex.wrapT = THREE.RepeatWrapping;
 
-    // tweak repetition (adjust later if you want bigger/smaller tiles)
     this._floorTex.repeat.set(1, 1);
     this._wallTex.repeat.set(1, 1);
   }
