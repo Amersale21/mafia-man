@@ -1,4 +1,15 @@
 // src/game.js
+
+// REMEMBER TO INCLUDE ATTRIBUTION
+// Cash Stacks: Poly Pizza “Coin” by Quaternius
+// https://poly.pizza/m/aLp0P2nXJ2
+
+// PolyHaven Planks
+// https://polyhaven.com/a/dark_wooden_planks
+
+// Walls - White washed brick
+// https://polyhaven.com/a/whitewashed_brick
+
 import { Level } from "./level.js";
 import { Player } from "./player.js";
 
@@ -8,7 +19,8 @@ export class Game {
     this.ui = ui;
 
     // 1) Define the grid FIRST
-    this.grid = [
+    // keep a template so we can reset later
+    this.levelTemplate = [
       "#####################",
       "#P.................E#",
       "#.#####.#######.#####",
@@ -18,39 +30,18 @@ export class Game {
       "#.#########.#####.#.#",
       "#.................#.#",
       "#####################",
-    ].map((row) => row.split(""));
-
-    // 2) Find spawn (P), then turn it into normal floor
-    let pr = 0,
-      pc = 0;
-    for (let r = 0; r < this.grid.length; r++) {
-      for (let c = 0; c < this.grid[r].length; c++) {
-        if (this.grid[r][c] === "P") {
-          pr = r;
-          pc = c;
-          this.grid[r][c] = " "; // treat spawn as normal floor
-        }
-      }
-    }
-
-    // 3) Create level
-    this.level = new Level(this.grid, 1);
-
-    // 4) Create player and place it, initialize their score to 0
-    this.player = new Player({ level: this.level });
-    this.player.setGridPos(pr, pc);
-    this.score = 0;
-    this.ui.setScore(0);
+    ];
+    // build initial state from template
+    this.resetLevelStateFromTemplate();
 
     // 5) add movement for the player - event listener
     this._onKeyDown = (e) => {
-      // prevent arrow keys from scrolling the page
       if (
         ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)
-      )
+      ) {
         e.preventDefault();
+      }
 
-      let moved = false;
       if (e.key === "ArrowUp" || e.key === "w" || e.key === "W")
         this.movePlayer(-1, 0);
       else if (e.key === "ArrowDown" || e.key === "s" || e.key === "S")
@@ -59,23 +50,12 @@ export class Game {
         this.movePlayer(0, -1);
       else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D")
         this.movePlayer(0, 1);
-
-      if (moved)
-        if (this.level.collectCoinAt(this.player.r, this.player.c)) {
-          this.score += 10;
-          this.ui.setScore(this.score);
-          this.ui.setStatus(
-            `Coin collected! Coins left: ${this.level.coinCount}`
-          );
-        } else {
-          this.ui.setStatus(`Player: (${this.player.r}, ${this.player.c})`);
-        }
     };
     // 7) Replay level feature
     if (this.ui.btnReplay) {
-      this.ui.btnReplay.addEventListener("click", () =>
-        window.location.reload()
-      );
+      this.ui.btnReplay.addEventListener("click", async () => {
+        await this.resetGame();
+      });
     }
     window.addEventListener("keydown", this._onKeyDown, { passive: false });
     // Hold, you can hold down a button to keep moving in the direction.
@@ -113,8 +93,19 @@ export class Game {
     bindHoldButton("btnLeft", 0, -1);
     bindHoldButton("btnRight", 0, 1);
 
-    this.score = 0;
-    this.ui.setScore(0);
+    // 8. Prototype vs full model logic
+    this.isFullMode = false;
+
+    if (this.ui.modeToggle) {
+      this.ui.modeToggle.addEventListener("change", async () => {
+        this.isFullMode = this.ui.modeToggle.checked;
+        await this.level.rebuild(this.isFullMode);
+        this.level.setExitUnlocked(this.level.exitUnlocked);
+        this.ui.setStatus(
+          this.isFullMode ? "Full mode enabled." : "Prototype mode enabled."
+        );
+      });
+    }
   }
 
   movePlayer(dr, dc) {
@@ -148,16 +139,67 @@ export class Game {
     return true;
   }
 
-  startPrototype() {
-    // camera: top-down-ish
+  async startPrototype() {
     this.engine.camera.position.set(0, 20, 8);
     this.engine.camera.lookAt(0, 0, 0);
+    await this.resetGame();
+  }
 
-    this.level.buildPrototype();
+  resetLevelStateFromTemplate() {
+    // deep grid copy from strings
+    this.grid = this.levelTemplate.map((row) => row.split(""));
+
+    // find spawn
+    let pr = 0,
+      pc = 0;
+    for (let r = 0; r < this.grid.length; r++) {
+      for (let c = 0; c < this.grid[r].length; c++) {
+        if (this.grid[r][c] === "P") {
+          pr = r;
+          pc = c;
+          this.grid[r][c] = " "; // treat spawn as normal floor
+        }
+      }
+    }
+
+    // recreate level from fresh grid
+    this.level = new Level(this.grid, 1);
+
+    // recreate player bound to this.level
+    this.player = new Player({ level: this.level });
+    this.player.setGridPos(pr, pc);
+  }
+
+  async resetGame() {
+    // stop win state + hide overlay
+    this._won = false;
+    this.ui.hideWin();
+
+    // reset score
+    this.score = 0;
+    this.ui.setScore(this.score);
+
+    // remove old objects from scene
+    // (we added their root meshes to engine.scene)
+    if (this.level?.root) this.engine.scene.remove(this.level.root);
+    if (this.player?.root) this.engine.scene.remove(this.player.root);
+
+    // rebuild fresh game objects
+    this.resetLevelStateFromTemplate();
+
+    // rebuild visuals based on current toggle
+    this.isFullMode = this.ui.modeToggle?.checked ?? false;
+    this.level.rebuild(this.isFullMode);
+
+    // add back to scene
     this.engine.add(this.level);
-
     this.engine.add(this.player);
+
+    // lock exit visually
     this.level.setExitUnlocked(false);
-    this.ui.setStatus("Prototype ready (player spawned).");
+
+    this.ui.setStatus(
+      this.isFullMode ? "Full mode ready." : "Prototype ready."
+    );
   }
 }

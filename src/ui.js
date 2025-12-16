@@ -8,8 +8,22 @@ export class UI {
     this.winScreen = document.getElementById("winScreen");
     this.winText = document.getElementById("winText");
     this.btnReplay = document.getElementById("btnReplay");
-  }
 
+    // === Persist Full mode across reloads ===
+    if (this.modeToggle) {
+      const saved = localStorage.getItem("mafiaManFullMode");
+      if (saved !== null) {
+        this.modeToggle.checked = saved === "1";
+      }
+
+      this.modeToggle.addEventListener("change", () => {
+        localStorage.setItem(
+          "mafiaManFullMode",
+          this.modeToggle.checked ? "1" : "0"
+        );
+      });
+    }
+  }
   setStatus(s) {
     if (this.statusEl) this.statusEl.textContent = s;
   }
