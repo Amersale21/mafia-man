@@ -65,8 +65,18 @@ export class Level {
     }
   }
 
-  // helper for later
-  isWall(r, c) {
-    return this.grid?.[r]?.[c] === "#";
+  inBounds(r, c) {
+    return r >= 0 && r < this.grid.length && c >= 0 && c < this.grid[0].length;
+  }
+
+  isWalkable(r, c) {
+    if (!this.inBounds(r, c)) return false;
+    return this.grid[r][c] !== "#";
+  }
+  // get useful coordinates for the player
+  gridToWorld(r, c) {
+    const x = (c - this.grid[0].length / 2) * this.tileSize;
+    const z = (r - this.grid.length / 2) * this.tileSize;
+    return { x, z };
   }
 }
