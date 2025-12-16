@@ -21,6 +21,12 @@ export class UI {
     this.btnBackToMenu2 = document.getElementById("btnBackToMenu2");
     // RNG mode added
     this.rngEnemySpawn = document.getElementById("rngSpawn");
+    // credits screen
+    this.creditsScreen = document.getElementById("creditsScreen");
+    this.btnCredits = document.getElementById("btnCredits");
+    this.btnBackFromCredits = document.getElementById("btnBackFromCredits");
+    // Hide Hud when looking at credits
+    this.hud = document.getElementById("hud");
 
     // === Persist Full mode across reloads ===
     if (this.modeToggle) {
@@ -81,5 +87,17 @@ export class UI {
   }
   getEnemyRng() {
     return this.rngEnemySpawn ? this.rngEnemySpawn.checked : false;
+  }
+
+  showCredits() {
+    if (this.menuScreen) this.menuScreen.style.display = "none";
+    if (this.hud) this.hud.style.display = "none";
+    if (this.creditsScreen) this.creditsScreen.style.display = "flex";
+  }
+
+  hideCredits() {
+    if (this.creditsScreen) this.creditsScreen.style.display = "none";
+    if (this.menuScreen) this.menuScreen.style.display = "flex";
+    if (this.hud) this.hud.style.display = "block";
   }
 }

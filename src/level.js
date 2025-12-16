@@ -14,12 +14,20 @@ export class Level {
     this._coinModel = null; // THREE.Object3D once loaded
     this._coinModelPromise = null;
 
-    // Keep references if we want to remove coins later
-    this.coinMeshes = new Map(); // key "r,c" -> mesh
+    // Keep references so we can remove picked up coins
+    this.coinMeshes = new Map();
     this.coinCount = 0;
     // Knife pickup (Level 3 only)
     this.knifeMeshes = new Map();
     this.hasKnife = false;
+
+    // Trophy pickup (Level 4)
+    this.trophyMeshes = new Map();
+    this.hasTrophy = false;
+
+    // Trophy model (Full mode)
+    this._trophyModel = null;
+    this._trophyModelPromise = null;
 
     // Tile stays grey until all coins are picked up
     // When all coins picked up, you can win the game
@@ -60,6 +68,25 @@ export class Level {
     return this._coinModelPromise;
   }
 
+  loadTrophyModelOnce() {
+    if (this._trophyModel) return Promise.resolve(this._trophyModel);
+    if (this._trophyModelPromise) return this._trophyModelPromise;
+
+    this._trophyModelPromise = new Promise((resolve, reject) => {
+      this._gltfLoader.load(
+        "./assets/models/trophy.glb",
+        (gltf) => {
+          this._trophyModel = gltf.scene;
+          resolve(this._trophyModel);
+        },
+        undefined,
+        reject
+      );
+    });
+
+    return this._trophyModelPromise;
+  }
+
   buildPrototype() {
     // Clear everything
     this.root.clear();
@@ -73,6 +100,9 @@ export class Level {
     this.knifeMeshes.clear();
     this.hasKnife = false;
 
+    this.trophyMeshes.clear();
+    this.hasTrophy = false;
+
     const wallMat = new THREE.MeshStandardMaterial({ color: 0x3b3b3b });
     const floorMat = new THREE.MeshStandardMaterial({ color: 0x2a3340 });
     const coinMat = new THREE.MeshStandardMaterial({ color: 0xffd34d });
@@ -82,6 +112,16 @@ export class Level {
     const knifeGeom = new THREE.BoxGeometry(0.35, 0.05, 0.08); // silly knife blade
     const handleGeom = new THREE.BoxGeometry(0.12, 0.06, 0.09);
     const handleMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+
+    // trophy geometry
+    const trophyGoldMat = new THREE.MeshStandardMaterial({
+      color: 0xffd34d,
+      roughness: 0.35,
+      metalness: 0.3,
+    });
+    const trophyCupGeom = new THREE.CylinderGeometry(0.18, 0.22, 0.22, 18);
+    const trophyStemGeom = new THREE.CylinderGeometry(0.06, 0.06, 0.12, 12);
+    const trophyBaseGeom = new THREE.CylinderGeometry(0.22, 0.26, 0.08, 16);
 
     const floorGeom = new THREE.PlaneGeometry(this.tileSize, this.tileSize);
     const wallGeom = new THREE.BoxGeometry(
@@ -145,7 +185,7 @@ export class Level {
           knife.add(blade);
           knife.add(handle);
 
-          // --- VISIBILITY FIXES ---
+          // Needs better visibility
           // stand upright instead of flat
           knife.rotation.x = 0;
 
@@ -159,7 +199,7 @@ export class Level {
           knife.scale.set(1.5, 1.5, 1.5);
 
           const root = new THREE.Group();
-          root.position.set(x, 0.22, z); // lift off ground so it’s visible
+          root.position.set(x, 0.22, z);
           root.add(knife);
 
           this.root.add(root);
@@ -167,6 +207,37 @@ export class Level {
             root,
             spin: knife,
             baseY: 0.22,
+          });
+        } else if (cell === "T") {
+          const cup = new THREE.Mesh(trophyCupGeom, trophyGoldMat);
+          cup.position.set(0, 0.18, 0);
+
+          const stem = new THREE.Mesh(trophyStemGeom, trophyGoldMat);
+          stem.position.set(0, 0.08, 0);
+
+          const base = new THREE.Mesh(
+            trophyBaseGeom,
+            new THREE.MeshStandardMaterial({ color: 0x3a2a12 })
+          );
+          base.position.set(0, 0.02, 0);
+
+          const trophy = new THREE.Group();
+          trophy.add(cup, stem, base);
+
+          // tilt so it reads from top-down + look “special”
+          trophy.rotation.x = -Math.PI / 8;
+          trophy.rotation.z = Math.PI / 10;
+          trophy.scale.set(1.6, 1.6, 1.6);
+
+          const root = new THREE.Group();
+          root.position.set(x, 0.18, z);
+          root.add(trophy);
+
+          this.root.add(root);
+          this.trophyMeshes.set(`${r},${c}`, {
+            root,
+            spin: trophy,
+            baseY: 0.18,
           });
         }
       }
@@ -190,6 +261,9 @@ export class Level {
 
     this.knifeMeshes.clear();
     this.hasKnife = false;
+
+    this.trophyMeshes.clear();
+    this.hasTrophy = false;
 
     const floorMat = new THREE.MeshStandardMaterial({
       map: this._floorTex,
@@ -233,6 +307,7 @@ export class Level {
 
     const coinGeom = new THREE.CylinderGeometry(0.18, 0.18, 0.08, 16);
     await this.loadCoinModelOnce();
+    await this.loadTrophyModelOnce();
     for (let r = 0; r < this.grid.length; r++) {
       for (let c = 0; c < this.grid[r].length; c++) {
         const x = (c - this.grid[r].length / 2) * this.tileSize;
@@ -277,7 +352,6 @@ export class Level {
           const blade = new THREE.Mesh(knifeGeom, knifeMat);
           const handle = new THREE.Mesh(handleGeom, handleMat);
 
-          // exaggerate handle so silhouette reads clearly
           handle.position.set(-0.32, 0, 0);
           blade.position.set(0.08, 0, 0);
 
@@ -285,27 +359,49 @@ export class Level {
           knife.add(blade);
           knife.add(handle);
 
-          // --- VISIBILITY FIXES ---
+          // Had to adjust knife to make it easier to see
+
           // stand upright instead of flat
           knife.rotation.x = 0;
 
           // rotate sideways so it has a profile
           knife.rotation.y = Math.PI / 2;
 
-          // slight tilt for visual interest + readability
           knife.rotation.z = Math.PI / 8;
 
           // make it larger so it’s obvious
           knife.scale.set(1.5, 1.5, 1.5);
 
           const root = new THREE.Group();
-          root.position.set(x, 0.22, z); // lift off ground so it’s visible
+          root.position.set(x, 0.22, z);
           root.add(knife);
 
           this.root.add(root);
           this.knifeMeshes.set(`${r},${c}`, {
             root,
             spin: knife,
+            baseY: 0.22,
+          });
+        } else if (cell === "T") {
+          const model = this._trophyModel.clone(true);
+
+          const trophy = new THREE.Group();
+          trophy.add(model);
+
+          // more readable
+          trophy.scale.set(2.5, 2.5, 2.5);
+          trophy.rotation.x = -Math.PI / 10;
+          trophy.rotation.y = Math.PI / 4;
+          trophy.rotation.z = Math.PI / 12;
+
+          const root = new THREE.Group();
+          root.position.set(x, 0.22, z);
+          root.add(trophy);
+
+          this.root.add(root);
+          this.trophyMeshes.set(`${r},${c}`, {
+            root,
+            spin: trophy,
             baseY: 0.22,
           });
         }
@@ -359,6 +455,19 @@ export class Level {
     return true;
   }
 
+  collectTrophyAt(r, c) {
+    const key = `${r},${c}`;
+    const entry = this.trophyMeshes.get(key);
+    if (!entry) return false;
+
+    this.root.remove(entry.root);
+    this.trophyMeshes.delete(key);
+
+    this.grid[r][c] = " ";
+    this.hasTrophy = true;
+    return true;
+  }
+
   setExitUnlocked(unlocked) {
     this.exitUnlocked = unlocked;
     if (this.exitMesh) {
@@ -374,15 +483,15 @@ export class Level {
 
   timeStep(dt, t) {
     for (const entry of this.coinMeshes.values()) {
-      // bob the wrapper so it always moves visibly
+      // bobbing effect
       entry.root.position.y = entry.baseY + 0.05 * Math.sin(t * 4.0);
 
-      // spin: choose axis based on whether it's a Mesh (prototype) or a Group/model (full)
+      // spin
       if (entry.spin.isMesh) {
         // prototype cylinder (lying flat): spin around Z looks best
         entry.spin.rotation.z += dt * 2.0;
       } else {
-        // glTF model: Y spin is usually what you want
+        // gltf model
         entry.spin.rotation.y += dt * 2.0;
       }
     }
@@ -391,6 +500,12 @@ export class Level {
       entry.root.position.y = entry.baseY + 0.04 * Math.sin(t * 5.0);
       entry.spin.rotation.y += dt * 2.5;
     }
+
+    for (const entry of this.trophyMeshes.values()) {
+      entry.root.position.y = entry.baseY + 0.05 * Math.sin(t * 3.5);
+      entry.spin.rotation.y += dt * 2.0;
+    }
+
     // Teleport pad effect: Full mode only, only when exit is unlocked
     if (this.isFullMode && this.exitUnlocked && this.exitMesh) {
       // spawn a few tiles per second
@@ -466,7 +581,7 @@ export class Level {
       color: 0x66ffcc,
       transparent: true,
       opacity: 0.55,
-      depthWrite: false, // helps transparency look nicer
+      depthWrite: false,
       side: THREE.DoubleSide,
     });
 
@@ -482,7 +597,7 @@ export class Level {
       this.exitMesh.position.z + oz
     );
 
-    // face upward (like a floating “square”)
+    // face upward
     tile.rotation.x = -Math.PI / 2;
 
     // store animation params

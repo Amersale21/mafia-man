@@ -11,7 +11,8 @@
 // https://polyhaven.com/a/whitewashed_brick
 // Enemy - NA
 // Wall2 -https://polyhaven.com/a/dark_brick_wall
-// Floor - https://ambientcg.com/view?id=Metal048A - ambient CG
+// Floor2 - https://polyhaven.com/a/plank_flooring_04
+// Trophy by Casey Tumbers [CC-BY] (https://creativecommons.org/licenses/by/3.0/) via Poly Pizza (https://poly.pizza/m/6Xu7mttjodo)
 
 import { Level } from "./level.js";
 import { Player } from "./player.js";
@@ -34,13 +35,26 @@ export class Game {
       timeStep: (dt, t) => this._checkEndStates(),
     };
 
+    // credits accessible
+    if (this.ui.btnCredits) {
+      this.ui.btnCredits.addEventListener("click", () => {
+        this.ui.showCredits();
+      });
+    }
+
+    if (this.ui.btnBackFromCredits) {
+      this.ui.btnBackFromCredits.addEventListener("click", () => {
+        this.ui.hideCredits();
+      });
+    }
+
     this.engine.add(this._system);
     this.enemies = [];
     // 1) Define the grid FIRST
     // keep a template so we can reset later
     this.levels = [
       {
-        name: "Level 1",
+        name: "Office I",
         grid: [
           "#####################",
           "#P.................E#",
@@ -54,7 +68,7 @@ export class Game {
         ],
       },
       {
-        name: "Level 2",
+        name: "Office II",
         grid: [
           "#########################",
           "#P..........#...........#",
@@ -72,7 +86,7 @@ export class Game {
         ],
       },
       {
-        name: "Level 3",
+        name: "High Stakes",
         grid: [
           "#############################",
           "#P...........#.............E#",
@@ -89,6 +103,20 @@ export class Game {
           "#.###.#.#.#####.#####.#.###.#",
           "#.....#.....K.........#.....#",
           "#############################",
+        ],
+      },
+      {
+        name: "Trophy Room",
+        grid: [
+          "###############",
+          "#P            #",
+          "#             #",
+          "#             #",
+          "#      T      #",
+          "#             #",
+          "#             #",
+          "#             #",
+          "###############",
         ],
       },
     ];
@@ -271,13 +299,45 @@ export class Game {
       }
     }
 
+    // trophy pickup (Level 4)
+    if (
+      this.levelIndex === 3 &&
+      this.level.collectTrophyAt(this.player.r, this.player.c)
+    ) {
+      this._won = true;
+      this.ended = true;
+
+      // stop enemies (should be none, but safe)
+      for (const e of this.enemies) e.setPaused(true);
+
+      // show special mafia message
+      this.ui.showWin(0);
+      if (this.ui.winText) {
+        this.ui.winText.textContent =
+          "Congratulations, you are now a part of The Mafia!";
+      }
+
+      // only option: back to menu
+      if (this.ui.btnReplay) this.ui.btnReplay.style.display = "none";
+      if (this.ui.btnBackToMenu)
+        this.ui.btnBackToMenu.style.display = "inline-block";
+
+      this.ui.setStatus("Trophy claimed.");
+      return true;
+    }
+
     // unlock exit when all coins are collected
-    if (!this.level.exitUnlocked && this.level.coinCount === 0) {
+    if (
+      this.levelIndex <= 2 &&
+      !this.level.exitUnlocked &&
+      this.level.coinCount === 0
+    ) {
       this.level.setExitUnlocked(true);
       this.ui.setStatus("All coins collected! Head to the exit!");
     }
     // win condition
     if (
+      this.levelIndex <= 2 &&
       this.level.exitUnlocked &&
       this.level.isExitTile(this.player.r, this.player.c)
     ) {
@@ -286,6 +346,7 @@ export class Game {
       for (const e of this.enemies) e.setPaused(true);
 
       const hasNext = this.levelIndex + 1 < this.levels.length;
+      this._updateLevelButtons();
 
       if (hasNext) {
         this.ui.setStatus(`${this.levels[this.levelIndex].name} complete!`);
@@ -307,6 +368,7 @@ export class Game {
       for (const e of this.enemies) e.setPaused(true);
 
       this.ui.setStatus("You got caught!");
+      this._updateLevelButtons();
       this.ui.showWin(0);
       if (this.ui.winText)
         this.ui.winText.textContent = "You got caught. Try again.";
@@ -381,6 +443,10 @@ export class Game {
     this.ended = false;
     this.ui.hideWin();
     this.ui.hideLevelComplete?.();
+    // restore buttons (trophy room hides replay)
+    if (this.ui.btnReplay) this.ui.btnReplay.style.display = "inline-block";
+    if (this.ui.btnBackToMenu)
+      this.ui.btnBackToMenu.style.display = "inline-block";
 
     // score: only reset if not keeping it
     if (!keepScore) {
@@ -438,9 +504,8 @@ export class Game {
         // avoid two killers spawning on same tile
         const occupied = new Set(this.enemies.map((e) => `${e.r},${e.c}`));
         let safety = 0;
-
+        // Multiple enemy spawn handlers
         while (occupied.has(`${spawn.r},${spawn.c}`) && safety < 80) {
-          // If deterministic far-spawn collides, switch to RNG spawn to break ties
           if (enemy.pickSpawnRandomAtLeastStepsAway) {
             // keep them reasonably far from player but allow variety
             spawn = enemy.pickSpawnRandomAtLeastStepsAway(
@@ -462,7 +527,7 @@ export class Game {
     }
 
     this.level.setExitUnlocked(false);
-
+    this._updateLevelButtons();
     this.ui.setStatus(
       `${this.levels[this.levelIndex].name} — ` +
         (this.isFullMode ? "Full mode" : "Prototype mode")
@@ -493,6 +558,9 @@ export class Game {
   _enemyCount() {
     if (!this._enemyEnabled()) return 0;
 
+    // Level 4: no enemies
+    if (this.levelIndex === 3) return 0;
+
     // Level 1 => 1, Level 2 => 2, Level 3 => 3
     if (this.levelIndex === 0) return 1;
     if (this.levelIndex === 1) return 2;
@@ -503,5 +571,27 @@ export class Game {
     return this.enemies?.some(
       (e) => e && e.r === this.player.r && e.c === this.player.c
     );
+  }
+
+  _getLevelName(i = this.levelIndex) {
+    return this.levels?.[i]?.name ?? `Level ${i + 1}`;
+  }
+
+  _updateLevelButtons() {
+    const cur = this._getLevelName(this.levelIndex);
+    const next =
+      this.levelIndex + 1 < this.levels.length
+        ? this._getLevelName(this.levelIndex + 1)
+        : null;
+
+    // Win screen replay button
+    if (this.ui?.btnReplay) this.ui.btnReplay.textContent = `Replay ${cur}`;
+
+    // Level-complete screen continue button
+    if (this.ui?.btnNextLevel) {
+      this.ui.btnNextLevel.textContent = next
+        ? `Advance to ${next}`
+        : "Back to Menu";
+    }
   }
 }

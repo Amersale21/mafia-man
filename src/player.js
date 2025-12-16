@@ -17,12 +17,12 @@ export class Player {
     this.baseY = 0.0;
     this.walkPhase = 0;
     this.isWalking = false;
-    this.walkTimer = 0; // seconds remaining to “play” walk after a move
+    this.walkTimer = 0; // seconds remaining to walk after a move
 
     // Build Mafia Man as a Group
     this.root = new THREE.Group();
 
-    // ---------- materials ----------
+    // MATERIALS
     const suitMat = new THREE.MeshStandardMaterial({
       color: 0x111418,
       roughness: 0.85,
@@ -54,7 +54,7 @@ export class Player {
       metalness: 0.1,
     });
 
-    // ---------- body group (so arms can swing) ----------
+    // body
     this.bodyGroup = new THREE.Group();
     this.root.add(this.bodyGroup);
 
@@ -74,13 +74,13 @@ export class Player {
     shirt.position.set(0, 0.56, 0.145);
     this.bodyGroup.add(shirt);
 
-    // Tie (simple wedge-ish)
+    // Tie - simple wedge
     const tie = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.22, 3), tieMat);
     tie.rotation.x = Math.PI; // point down
     tie.position.set(0, 0.52, 0.155);
     this.bodyGroup.add(tie);
 
-    // Legs (simple)
+    // Legs
     const legGeom = new THREE.BoxGeometry(0.16, 0.35, 0.18);
     const legL = new THREE.Mesh(legGeom, suitMat);
     const legR = new THREE.Mesh(legGeom, suitMat);
@@ -88,13 +88,13 @@ export class Player {
     legR.position.set(0.11, 0.18, 0);
     this.bodyGroup.add(legL, legR);
 
-    // Arms (swing these)
+    // Arms swing
     const armGeom = new THREE.BoxGeometry(0.12, 0.36, 0.14);
 
     this.armL = new THREE.Mesh(armGeom, suitMat);
     this.armR = new THREE.Mesh(armGeom, suitMat);
 
-    // pivot arms from shoulder-ish
+    // pivot arms from shoulder
     this.armLPivot = new THREE.Group();
     this.armRPivot = new THREE.Group();
 
@@ -117,7 +117,7 @@ export class Player {
     head.position.set(0, 0.98, 0);
     this.root.add(head);
 
-    // Face: eyes + nose so direction is obvious
+    // Facet o make direction obvious
     const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), eyeMat);
     const eye2 = eye.clone();
     eye.position.set(-0.07, 1.02, 0.18);
@@ -144,7 +144,7 @@ export class Player {
     crown.position.set(0, 1.25, 0);
     this.root.add(crown);
 
-    // optional hat band
+    // hat band
     const band = new THREE.Mesh(
       new THREE.CylinderGeometry(0.19, 0.23, 0.03, 18),
       tieMat
@@ -152,8 +152,7 @@ export class Player {
     band.position.set(0, 1.19, 0);
     this.root.add(band);
 
-    // Shadows off (your project seems not using shadows)
-    // but keep cast/receive false for consistency
+    // Shadows off
     this.root.traverse((o) => {
       if (o.isMesh) {
         o.castShadow = false;

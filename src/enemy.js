@@ -16,7 +16,7 @@ export class Enemy {
 
     this.root = new THREE.Group();
 
-    // --- simple lego-ish body ---
+    // simple lego body again
     const bodyMat = new THREE.MeshStandardMaterial({
       color,
       roughness: 0.8,
@@ -74,7 +74,7 @@ export class Enemy {
     eye2.position.set(0.06, 1.02, 0.16);
     this.root.add(eye1, eye2);
 
-    // “nose” so forward direction is obvious
+    // big nose for the bad guys
     const nose = new THREE.Mesh(
       new THREE.ConeGeometry(0.03, 0.09, 10),
       headMat
@@ -98,7 +98,7 @@ export class Enemy {
     this.root.position.set(x, 0.0, z);
   }
 
-  // pick a spawn that’s far-ish from player: scan for walkable cells and choose max Manhattan distance
+  // pick a spawn that still gives the player some breathing room in the beginning
   pickSpawnFarFrom(tr, tc) {
     let best = null;
     let bestD = -1;
@@ -236,7 +236,7 @@ export class Enemy {
     return dist;
   }
 
-  // RNG spawn: pick a random walkable tile at least minsteps away
+  // RNG spawn: pick a random walkable tile at least 5 steps away
   pickSpawnRandomAtLeastStepsAway(tr, tc, minSteps = 5) {
     const dist = this._bfsDistancesFrom(tr, tc);
 

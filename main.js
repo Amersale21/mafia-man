@@ -8,7 +8,6 @@ const ui = new UI();
 const engine = new Engine(container);
 const game = new Game({ engine, ui });
 
-// For now: just build prototype maze
 game.startPrototype();
 
 engine.start();
