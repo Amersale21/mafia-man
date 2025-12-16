@@ -379,7 +379,14 @@ export class Game {
   }
 
   async startPrototype() {
-    this.engine.camera.position.set(0, 20, 8);
+    const wide = this.ui.getWideCamera?.() ?? false;
+
+    if (wide) {
+      this.engine.camera.position.set(0, 28, 14); // higher + farther
+    } else {
+      this.engine.camera.position.set(0, 20, 8); // your original
+    }
+
     this.engine.camera.lookAt(0, 0, 0);
     await this.resetGame();
   }
@@ -528,6 +535,10 @@ export class Game {
 
     this.level.setExitUnlocked(false);
     this._updateLevelButtons();
+    const wide = this.ui.getWideCamera?.() ?? false;
+    if (wide) this.engine.camera.position.set(0, 28, 14);
+    else this.engine.camera.position.set(0, 20, 8);
+    this.engine.camera.lookAt(0, 0, 0);
     this.ui.setStatus(
       `${this.levels[this.levelIndex].name} — ` +
         (this.isFullMode ? "Full mode" : "Prototype mode")

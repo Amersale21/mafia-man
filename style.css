@@ -32,7 +32,8 @@ body {
   position: absolute;
   left: 50%;
   bottom: 18px;
-  transform: translateX(-50%);
+  transform: translateX(-50%) scale(0.8);
+  transform-origin: bottom center;
   display: grid;
   grid-template-columns: 64px 64px 64px;
   grid-template-rows: 64px 64px;

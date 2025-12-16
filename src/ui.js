@@ -27,6 +27,7 @@ export class UI {
     this.btnBackFromCredits = document.getElementById("btnBackFromCredits");
     // Hide Hud when looking at credits
     this.hud = document.getElementById("hud");
+    this.cameraWide = document.getElementById("cameraWide");
 
     // === Persist Full mode across reloads ===
     if (this.modeToggle) {
@@ -99,5 +100,8 @@ export class UI {
     if (this.creditsScreen) this.creditsScreen.style.display = "none";
     if (this.menuScreen) this.menuScreen.style.display = "flex";
     if (this.hud) this.hud.style.display = "block";
+  }
+  getWideCamera() {
+    return this.cameraWide ? this.cameraWide.checked : false;
   }
 }
