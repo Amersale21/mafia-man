@@ -9,7 +9,9 @@
 
 // Walls - White washed brick
 // https://polyhaven.com/a/whitewashed_brick
-// Enemy -
+// Enemy - NA
+// Wall2 -https://polyhaven.com/a/dark_brick_wall
+// Floor - https://ambientcg.com/view?id=Metal048A - ambient CG
 
 import { Level } from "./level.js";
 import { Player } from "./player.js";
@@ -33,20 +35,46 @@ export class Game {
     };
 
     this.engine.add(this._system);
-    this.enemy = null;
+    this.enemies = [];
     // 1) Define the grid FIRST
     // keep a template so we can reset later
-    this.levelTemplate = [
-      "#####################",
-      "#P.................E#",
-      "#.#####.#######.#####",
-      "#.....#.....#.......#",
-      "###.#.#####.#.#####.#",
-      "#...#.......#.....#.#",
-      "#.#########.#####.#.#",
-      "#.................#.#",
-      "#####################",
+    this.levels = [
+      {
+        name: "Level 1",
+        grid: [
+          "#####################",
+          "#P.................E#",
+          "#.#####.#######.#####",
+          "#.....#.....#.......#",
+          "###.#.#####.#.#####.#",
+          "#...#.......#.....#.#",
+          "#.#########.#####.#.#",
+          "#.................#.#",
+          "#####################",
+        ],
+      },
+      {
+        name: "Level 2",
+        grid: [
+          "#########################",
+          "#P..........#...........#",
+          "#.#########.#.#########.#",
+          "#.....#.....#.....#.....#",
+          "###.#.#.#########.#.#.###",
+          "#...#.#.....#.....#.#...#",
+          "#.###.#####.#.#####.###.#",
+          "#.....#...#.#.#...#.....#",
+          "#.#####.#.#.#.#.#.#####.#",
+          "#.......#.#...#.#.......#",
+          "###.#####.#####.#####.###",
+          "#.................E.....#",
+          "#########################",
+        ],
+      },
     ];
+
+    this.levelIndex = 0;
+    this.levelTemplate = this.levels[this.levelIndex].grid;
     // build initial state from template
     this.resetLevelStateFromTemplate();
 
@@ -75,19 +103,21 @@ export class Game {
         await this.resetGame();
       });
     }
-    // Back to main menu
+    // 8) Back to main menu
     if (this.ui.btnBackToMenu) {
       this.ui.btnBackToMenu.addEventListener("click", () => {
         this._won = false;
         this.started = false;
+        this.ended = false;
 
-        // hide win screen
+        // reset to level 1 when you go back to menu
+        this._setToLevel1();
+
         this.ui.hideWin();
-
-        // show main menu again
+        this.ui.hideLevelComplete?.();
         this.ui.showMenu();
-
         this.ui.setStatus("Choose difficulty and mode.");
+        this.ui.setScore(0);
       });
     }
     window.addEventListener("keydown", this._onKeyDown, { passive: false });
@@ -144,6 +174,12 @@ export class Game {
     this.ui.showMenu?.();
 
     if (this.ui.btnStart) {
+      // starts at level 0
+      this.levelIndex = 0;
+      this.levelTemplate = this.levels[this.levelIndex].grid;
+      this.score = 0;
+      this.ui.setScore(0);
+
       this.ui.btnStart.addEventListener("click", async () => {
         this.difficulty = this.ui.getSelectedDifficulty?.() ?? "easy";
 
@@ -157,6 +193,30 @@ export class Game {
 
         await this.startPrototype(); // sets camera + resetGame
         this.ui.setStatus(`Started: ${this.difficulty.toUpperCase()}`);
+      });
+    }
+
+    if (this.ui.btnNextLevel) {
+      this.ui.btnNextLevel.addEventListener("click", async () => {
+        this.ui.hideLevelComplete?.();
+        await this.loadLevel(this.levelIndex + 1, { keepScore: true });
+      });
+    }
+
+    if (this.ui.btnBackToMenu2) {
+      this.ui.btnBackToMenu2.addEventListener("click", () => {
+        this._won = false;
+        this.started = false;
+        this.ended = false;
+
+        // IMPORTANT: reset to Level 1 for the next run
+        this._setToLevel1();
+
+        this.ui.hideLevelComplete?.();
+        this.ui.hideWin();
+        this.ui.showMenu();
+        this.ui.setStatus("Choose difficulty and mode.");
+        this.ui.setScore(0);
       });
     }
   }
@@ -187,23 +247,31 @@ export class Game {
       this.level.isExitTile(this.player.r, this.player.c)
     ) {
       this._won = true;
-      // Pause enemy character
       this.ended = true;
-      if (this.enemy) this.enemy.setPaused(true);
-      this.ui.setStatus(`You escaped! Final score: ${this.score}`);
-      this.ui.showWin(this.score);
+      for (const e of this.enemies) e.setPaused(true);
+
+      const hasNext = this.levelIndex + 1 < this.levels.length;
+
+      if (hasNext) {
+        this.ui.setStatus(`${this.levels[this.levelIndex].name} complete!`);
+        this.ui.showLevelComplete?.(
+          `${this.levels[this.levelIndex].name} Complete`,
+          `Score so far: ${this.score}`
+        );
+      } else {
+        this.ui.setStatus(`You escaped! Final score: ${this.score}`);
+        this.ui.showWin(this.score);
+      }
       return true;
     }
 
     // lose condition (enemy reaches player tile)
-    if (
-      this.enemy &&
-      this.enemy.r === this.player.r &&
-      this.enemy.c === this.player.c
-    ) {
-      this._won = true; // reuse to freeze movement
+    if (this._enemyTouchesPlayer()) {
+      this._won = true;
+      this.ended = true;
+      for (const e of this.enemies) e.setPaused(true);
+
       this.ui.setStatus("You got caught!");
-      // NEED TO ADD LOSE SCREEN NEXT
       this.ui.showWin(0);
       if (this.ui.winText)
         this.ui.winText.textContent = "You got caught. Try again.";
@@ -250,13 +318,12 @@ export class Game {
     if (!this.started || this.ended) return;
 
     // lose: enemy touches player
-    if (
-      this.enemy &&
-      this.enemy.r === this.player.r &&
-      this.enemy.c === this.player.c
-    ) {
+    if (this._enemyTouchesPlayer()) {
       this.ended = true;
-      this._won = true; // freezes player movement in your code
+      this._won = true;
+
+      for (const e of this.enemies) e.setPaused(true);
+
       this.ui.setStatus("You got caught!");
       this.ui.showWin(0);
       if (this.ui.winText)
@@ -265,55 +332,85 @@ export class Game {
     }
   }
 
-  async resetGame() {
-    // stop win state + hide overlay
+  async resetGame({ keepScore = false } = {}) {
+    // stop win state + hide overlays
     this._won = false;
-    this.ui.hideWin();
-
-    // reset score
-    this.score = 0;
-    this.ui.setScore(this.score);
-    // game just started so removed the ended flag
     this.ended = false;
-    // remove old objects from scene
+    this.ui.hideWin();
+    this.ui.hideLevelComplete?.();
+
+    // score: only reset if not keeping it
+    if (!keepScore) {
+      this.score = 0;
+      this.ui.setScore(this.score);
+    } else {
+      this.ui.setScore(this.score);
+    }
+
+    // remove old objects
     if (this.level?.root) this.engine.scene.remove(this.level.root);
     if (this.player?.root) this.engine.scene.remove(this.player.root);
-    if (this.enemy?.root) this.engine.scene.remove(this.enemy.root);
-    this.enemy = null;
-    // rebuild fresh game objects
+    for (const e of this.enemies) {
+      if (e?.root) this.engine.scene.remove(e.root);
+    }
+    this.enemies = [];
+
+    // rebuild fresh game objects for current template
     this.resetLevelStateFromTemplate();
 
-    // rebuild visuals based on current toggle
     this.isFullMode = this.ui.modeToggle?.checked ?? false;
     await this.level.rebuild(this.isFullMode);
 
-    // add back to scene
     this.engine.add(this.level);
     this.engine.add(this.player);
-    // spawn enemy for medium/hard
-    if (this._enemyEnabled()) {
-      const stepInterval = this._enemyInterval();
 
-      this.enemy = new Enemy({
-        level: this.level,
-        stepInterval,
-        getTargetRC: () => ({ r: this.player.r, c: this.player.c }),
-      });
+    // spawn enemies
+    const count = this._enemyCount();
+    if (count > 0) {
+      const rng = this.ui.getEnemyRng?.() ?? false;
 
-      // pick spawn far from player
-      const spawn = this.enemy.pickSpawnFarFrom(this.player.r, this.player.c);
-      this.enemy.setGridPos(spawn.r, spawn.c);
+      for (let i = 0; i < count; i++) {
+        const stepInterval = this._enemyInterval();
 
-      this.engine.add(this.enemy);
-    } else {
-      this.enemy = null;
+        const enemy = new Enemy({
+          level: this.level,
+          stepInterval,
+          color: i === 0 ? 0xcc2222 : 0x991111, // second killer darker red
+          getTargetRC: () => ({ r: this.player.r, c: this.player.c }),
+        });
+
+        // pick spawn
+        let spawn = null;
+
+        if (rng && enemy.pickSpawnRandomAtLeastStepsAway) {
+          spawn = enemy.pickSpawnRandomAtLeastStepsAway(
+            this.player.r,
+            this.player.c,
+            5
+          );
+        } else {
+          spawn = enemy.pickSpawnFarFrom(this.player.r, this.player.c);
+        }
+
+        // IMPORTANT: avoid two killers spawning on same tile
+        const occupied = new Set(this.enemies.map((e) => `${e.r},${e.c}`));
+        let safety = 0;
+        while (occupied.has(`${spawn.r},${spawn.c}`) && safety < 50) {
+          spawn = enemy.pickSpawnFarFrom(this.player.r, this.player.c);
+          safety++;
+        }
+
+        enemy.setGridPos(spawn.r, spawn.c);
+        this.enemies.push(enemy);
+        this.engine.add(enemy);
+      }
     }
 
-    // lock exit visually
     this.level.setExitUnlocked(false);
 
     this.ui.setStatus(
-      this.isFullMode ? "Full mode ready." : "Prototype ready."
+      `${this.levels[this.levelIndex].name} — ` +
+        (this.isFullMode ? "Full mode" : "Prototype mode")
     );
   }
 
@@ -324,5 +421,29 @@ export class Game {
 
   _enemyInterval() {
     return this.difficulty === "hard" ? 0.25 : 0.45; // hard faster
+  }
+  // Helper to switch level templates
+  async loadLevel(index, { keepScore = true } = {}) {
+    this.levelIndex = index;
+    this.levelTemplate = this.levels[this.levelIndex].grid;
+    await this.resetGame({ keepScore });
+  }
+
+  // Going back to main menu should lose your progress
+  _setToLevel1() {
+    this.levelIndex = 0;
+    this.levelTemplate = this.levels[this.levelIndex].grid;
+  }
+
+  _enemyCount() {
+    if (!this._enemyEnabled()) return 0;
+    // Level 1 => 1 killer, Level 2+ => 2 killers
+    return this.levelIndex === 0 ? 1 : 2;
+  }
+
+  _enemyTouchesPlayer() {
+    return this.enemies?.some(
+      (e) => e && e.r === this.player.r && e.c === this.player.c
+    );
   }
 }

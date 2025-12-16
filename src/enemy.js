@@ -199,6 +199,77 @@ export class Enemy {
     this.paused = p;
   }
 
+  // New added RNG mode to the game. Enemy can spawn anywhere, but has to give player at least 5 steps of space.
+  // BFS distance field from (sr, sc) to all tiles.
+  // Returns dist[r][c] = number (>=0) or -1 if unreachable.
+  _bfsDistancesFrom(sr, sc) {
+    const R = this.level.grid.length;
+    const C = this.level.grid[0].length;
+
+    const dist = Array.from({ length: R }, () => Array(C).fill(-1));
+    const q = [];
+
+    if (!this.level.isWalkable(sr, sc)) return dist;
+
+    dist[sr][sc] = 0;
+    q.push({ r: sr, c: sc });
+
+    const dirs = [
+      { dr: -1, dc: 0 },
+      { dr: 1, dc: 0 },
+      { dr: 0, dc: -1 },
+      { dr: 0, dc: 1 },
+    ];
+
+    while (q.length) {
+      const cur = q.shift();
+      for (const d of dirs) {
+        const nr = cur.r + d.dr;
+        const nc = cur.c + d.dc;
+        if (!this.level.isWalkable(nr, nc)) continue;
+        if (dist[nr][nc] !== -1) continue;
+        dist[nr][nc] = dist[cur.r][cur.c] + 1;
+        q.push({ r: nr, c: nc });
+      }
+    }
+
+    return dist;
+  }
+
+  // RNG spawn: pick a random walkable tile at least minsteps away
+  pickSpawnRandomAtLeastStepsAway(tr, tc, minSteps = 5) {
+    const dist = this._bfsDistancesFrom(tr, tc);
+
+    const candidates = [];
+    let farthest = null;
+    let farthestD = -1;
+
+    for (let r = 0; r < this.level.grid.length; r++) {
+      for (let c = 0; c < this.level.grid[r].length; c++) {
+        if (!this.level.isWalkable(r, c)) continue;
+        if (this.level.isExitTile(r, c)) continue;
+
+        const d = dist[r][c];
+        if (d === -1) continue; // unreachable
+
+        if (d >= minSteps) candidates.push({ r, c });
+
+        if (d > farthestD) {
+          farthestD = d;
+          farthest = { r, c };
+        }
+      }
+    }
+
+    if (candidates.length) {
+      const idx = Math.floor(Math.random() * candidates.length);
+      return candidates[idx];
+    }
+
+    // fallback in case a good starting spot isnt found (should never happen)
+    return farthest ?? { r: 1, c: 1 };
+  }
+
   timeStep(dt, t) {
     if (this.paused) return;
     this._acc += dt;

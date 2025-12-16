@@ -13,6 +13,14 @@ export class UI {
     this.menuScreen = document.getElementById("menuScreen");
     this.btnStart = document.getElementById("btnStart");
     this.difficultySelect = document.getElementById("difficultySelect");
+    //Level transition
+    this.levelScreen = document.getElementById("levelScreen");
+    this.levelTitle = document.getElementById("levelTitle");
+    this.levelText = document.getElementById("levelText");
+    this.btnNextLevel = document.getElementById("btnNextLevel");
+    this.btnBackToMenu2 = document.getElementById("btnBackToMenu2");
+    // RNG mode added
+    this.rngEnemySpawn = document.getElementById("rngSpawn");
 
     // === Persist Full mode across reloads ===
     if (this.modeToggle) {
@@ -61,5 +69,17 @@ export class UI {
   getSelectedStartMode() {
     const picked = document.querySelector('input[name="startMode"]:checked');
     return picked ? picked.value : "prototype"; // "prototype" or "full"
+  }
+
+  showLevelComplete(title, text) {
+    if (this.levelTitle) this.levelTitle.textContent = title;
+    if (this.levelText) this.levelText.textContent = text;
+    if (this.levelScreen) this.levelScreen.style.display = "flex";
+  }
+  hideLevelComplete() {
+    if (this.levelScreen) this.levelScreen.style.display = "none";
+  }
+  getEnemyRng() {
+    return this.rngEnemySpawn ? this.rngEnemySpawn.checked : false;
   }
 }
