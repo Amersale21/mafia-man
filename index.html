@@ -10,24 +10,61 @@
         margin: 0;
         height: 100%;
         overflow: hidden;
+        background: #111;
       }
+
+      #container {
+        width: 100vw;
+        height: 100vh;
+      }
+
       #hud {
         position: absolute;
         top: 8px;
         left: 8px;
         font-family: system-ui, sans-serif;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgba(0, 0, 0, 0.55);
         color: white;
-        padding: 8px 10px;
-        border-radius: 8px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        user-select: none;
       }
-      #container {
-        width: 100vw;
-        height: 100vh;
+
+      #titleRow {
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+
+      #touchControls {
+        position: absolute;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        display: grid;
+        grid-template-columns: 64px 64px 64px;
+        grid-template-rows: 64px 64px;
+        gap: 10px;
+        pointer-events: none; /* buttons will re-enable */
+      }
+
+      .btn {
+        pointer-events: auto;
+        font-size: 20px;
+        border: none;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.18);
+        color: white;
+        backdrop-filter: blur(6px);
+      }
+
+      /* Hide touch controls on desktop-ish pointers */
+      @media (hover: hover) and (pointer: fine) {
+        #touchControls {
+          display: none;
+        }
       }
     </style>
 
-    <!-- Import map: no bundler, works on GitHub Pages -->
     <script type="importmap">
       {
         "imports": {
@@ -39,12 +76,26 @@
 
   <body>
     <div id="hud">
-      <div><b>Group ID:</b> 0711</div>
+      <div id="titleRow">Mafia Man — Group ID: 0711</div>
       <div>
         <label><input id="modeToggle" type="checkbox" /> Full mode</label>
       </div>
+      <div id="score">Score: 0</div>
       <div id="status">Loading…</div>
+      <div style="opacity: 0.85; font-size: 12px; margin-top: 6px">
+        Move: WASD / Arrows • Collect all coins • Exit to finish
+      </div>
     </div>
+
+    <div id="touchControls">
+      <div></div>
+      <button class="btn" id="btnUp">▲</button>
+      <div></div>
+      <button class="btn" id="btnLeft">◀</button>
+      <button class="btn" id="btnDown">▼</button>
+      <button class="btn" id="btnRight">▶</button>
+    </div>
+
     <div id="container"></div>
 
     <script type="module" src="./main.js"></script>
