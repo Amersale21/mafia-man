@@ -4,66 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Mafia Man</title>
-    <style>
-      html,
-      body {
-        margin: 0;
-        height: 100%;
-        overflow: hidden;
-        background: #111;
-      }
 
-      #container {
-        width: 100vw;
-        height: 100vh;
-      }
-
-      #hud {
-        position: absolute;
-        top: 8px;
-        left: 8px;
-        font-family: system-ui, sans-serif;
-        background: rgba(0, 0, 0, 0.55);
-        color: white;
-        padding: 10px 12px;
-        border-radius: 10px;
-        user-select: none;
-      }
-
-      #titleRow {
-        font-weight: 700;
-        margin-bottom: 6px;
-      }
-
-      #touchControls {
-        position: absolute;
-        left: 50%;
-        bottom: 18px;
-        transform: translateX(-50%);
-        display: grid;
-        grid-template-columns: 64px 64px 64px;
-        grid-template-rows: 64px 64px;
-        gap: 10px;
-        pointer-events: none; /* buttons will re-enable */
-      }
-
-      .btn {
-        pointer-events: auto;
-        font-size: 20px;
-        border: none;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.18);
-        color: white;
-        backdrop-filter: blur(6px);
-      }
-
-      /* Hide touch controls on desktop-ish pointers */
-      @media (hover: hover) and (pointer: fine) {
-        #touchControls {
-          display: none;
-        }
-      }
-    </style>
+    <link rel="stylesheet" href="./style.css" />
 
     <script type="importmap">
       {
@@ -86,7 +28,13 @@
         Move: WASD / Arrows • Collect all coins • Exit to finish
       </div>
     </div>
-
+    <div id="winScreen">
+      <div id="winCard">
+        <h1>You are a valid mafia member.</h1>
+        <p id="winText">Your score was: 0</p>
+        <button id="btnReplay">Replay Level 1</button>
+      </div>
+    </div>
     <div id="touchControls">
       <div></div>
       <button class="btn" id="btnUp">▲</button>

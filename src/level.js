@@ -10,6 +10,13 @@ export class Level {
     // Keep references if we want to remove coins later
     this.coinMeshes = new Map(); // key "r,c" -> mesh
     this.coinCount = 0;
+
+    // Tile stays grey until all coins are picked up
+    // When all coins picked up, you can win the game
+    this.exitMesh = null;
+    this.exitLockedMat = new THREE.MeshStandardMaterial({ color: 0x666666 });
+    this.exitUnlockedMat = new THREE.MeshStandardMaterial({ color: 0x33cc66 });
+    this.exitUnlocked = false;
   }
 
   buildPrototype() {
@@ -56,10 +63,13 @@ export class Level {
         } else if (cell === "E") {
           const exit = new THREE.Mesh(
             new THREE.BoxGeometry(this.tileSize, 0.1, this.tileSize),
-            exitMat
+            this.exitLockedMat
           );
           exit.position.set(x, 0.05, z);
           this.root.add(exit);
+
+          this.exitMesh = exit;
+          this.exitUnlocked = false;
         }
       }
     }
@@ -78,5 +88,45 @@ export class Level {
     const x = (c - this.grid[0].length / 2) * this.tileSize;
     const z = (r - this.grid.length / 2) * this.tileSize;
     return { x, z };
+  }
+
+  collectCoinAt(r, c) {
+    const key = `${r},${c}`;
+    const mesh = this.coinMeshes.get(key);
+    if (!mesh) return false;
+
+    // remove mesh + update bookkeeping
+    this.root.remove(mesh);
+    this.coinMeshes.delete(key);
+    this.coinCount = Math.max(0, this.coinCount - 1);
+
+    // update grid: coin is now empty
+    this.grid[r][c] = " ";
+
+    return true;
+  }
+
+  setExitUnlocked(unlocked) {
+    this.exitUnlocked = unlocked;
+    if (this.exitMesh) {
+      this.exitMesh.material = unlocked
+        ? this.exitUnlockedMat
+        : this.exitLockedMat;
+    }
+  }
+
+  isExitTile(r, c) {
+    return this.grid?.[r]?.[c] === "E";
+  }
+
+  timeStep(dt, t) {
+    for (const mesh of this.coinMeshes.values()) {
+      mesh.rotation.z += dt * 2.0; // spin
+      mesh.position.y = 0.15 + 0.05 * Math.sin(t * 4.0); // bob
+    }
+    if (this.exitUnlocked && this.exitMesh) {
+      // Animate the exite tile so the user is clear where to go.
+      this.exitMesh.position.y = 0.05 + 0.02 * Math.sin(t * 6.0);
+    }
   }
 }
