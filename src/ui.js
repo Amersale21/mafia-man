@@ -29,6 +29,9 @@ export class UI {
     this.hud = document.getElementById("hud");
     this.cameraWide = document.getElementById("cameraWide");
 
+    // Hot fix, death text
+    this.winTitle = document.getElementById("winTitle");
+
     // === Persist Full mode across reloads ===
     if (this.modeToggle) {
       const saved = localStorage.getItem("mafiaManFullMode");
@@ -52,7 +55,8 @@ export class UI {
     if (this.scoreEl) this.scoreEl.textContent = `Score: ${n}`;
   }
 
-  showWin(score) {
+  showWin(score, title = "You are a valid mafia member.") {
+    if (this.winTitle) this.winTitle.textContent = title;
     if (this.winText) this.winText.textContent = `Your score was: ${score}`;
     if (this.winScreen) this.winScreen.style.display = "flex";
   }

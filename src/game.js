@@ -369,7 +369,7 @@ export class Game {
 
       this.ui.setStatus("You got caught!");
       this._updateLevelButtons();
-      this.ui.showWin(0);
+      this.ui.showWin(0, "You Failed!");
       if (this.ui.winText)
         this.ui.winText.textContent = "You got caught. Try again.";
       return true;
@@ -437,7 +437,7 @@ export class Game {
       for (const e of this.enemies) e.setPaused(true);
 
       this.ui.setStatus("You got caught!");
-      this.ui.showWin(0);
+      this.ui.showWin(0, "You Failed!");
       if (this.ui.winText)
         this.ui.winText.textContent = "You got caught. Try again.";
       return;
