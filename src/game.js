@@ -189,7 +189,7 @@ export class Game {
 
     // rebuild visuals based on current toggle
     this.isFullMode = this.ui.modeToggle?.checked ?? false;
-    this.level.rebuild(this.isFullMode);
+    await this.level.rebuild(this.isFullMode);
 
     // add back to scene
     this.engine.add(this.level);

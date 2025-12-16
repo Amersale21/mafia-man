@@ -29,6 +29,12 @@ export class Level {
     this._texLoader = null;
     this._floorTex = null;
     this._wallTex = null;
+    // Add more effects for the full mode.
+    this.isFullMode = false;
+
+    // teleport pad effect
+    this._teleportTiles = [];
+    this._teleportTimer = 0;
   }
 
   loadCoinModelOnce() {
@@ -51,10 +57,14 @@ export class Level {
   }
 
   buildPrototype() {
+    // Clear everything
     this.root.clear();
     this.coinMeshes.clear();
+    const wasUnlocked = this.exitUnlocked;
     this.coinCount = 0;
     this.exitMesh = null;
+    this._teleportTiles = [];
+    this._teleportTimer = 0;
 
     const wallMat = new THREE.MeshStandardMaterial({ color: 0x3b3b3b });
     const floorMat = new THREE.MeshStandardMaterial({ color: 0x2a3340 });
@@ -109,17 +119,18 @@ export class Level {
           this.root.add(exit);
 
           this.exitMesh = exit;
-          this.exitUnlocked = false;
         }
       }
     }
+    this.setExitUnlocked(wasUnlocked);
   }
   /*
    * Build full model - has textures and custom models.
    */
   async buildFull() {
     this.ensureTexturesLoaded();
-
+    this._teleportTiles = [];
+    this._teleportTimer = 0;
     // preserve current exit lock state across rebuild
     const wasUnlocked = this.exitUnlocked;
 
@@ -258,6 +269,36 @@ export class Level {
         entry.spin.rotation.y += dt * 2.0;
       }
     }
+    // Teleport pad effect: Full mode only, only when exit is unlocked
+    if (this.isFullMode && this.exitUnlocked && this.exitMesh) {
+      // spawn a few tiles per second
+      this._teleportTimer += dt;
+      while (this._teleportTimer > 0.08) {
+        // ~12.5 per second
+        this._teleportTimer -= 0.08;
+        this._spawnTeleportTile();
+      }
+    }
+
+    // animate existing tiles
+    for (let i = this._teleportTiles.length - 1; i >= 0; i--) {
+      const p = this._teleportTiles[i];
+      p.life -= dt;
+
+      // rise
+      p.mesh.position.y += p.vy * dt;
+
+      // fade out
+      const a = Math.max(0, p.life / p.maxLife);
+      p.mesh.material.opacity = 0.55 * a;
+
+      if (p.life <= 0) {
+        this.root.remove(p.mesh);
+        p.mesh.geometry.dispose();
+        p.mesh.material.dispose();
+        this._teleportTiles.splice(i, 1);
+      }
+    }
   }
 
   ensureTexturesLoaded() {
@@ -279,7 +320,51 @@ export class Level {
   }
 
   async rebuild(isFull) {
+    this.isFullMode = isFull;
     if (isFull) await this.buildFull();
     else this.buildPrototype();
+  }
+
+  _spawnTeleportTile() {
+    if (!this.exitMesh) return;
+
+    // random small square size
+    const s = 0.15 + Math.random() * 0.2;
+
+    const geom = new THREE.PlaneGeometry(s, s);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x66ffcc,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false, // helps transparency look nicer
+      side: THREE.DoubleSide,
+    });
+
+    const tile = new THREE.Mesh(geom, mat);
+
+    // spawn near the exit center with slight random offset
+    const ox = (Math.random() - 0.5) * this.tileSize * 0.7;
+    const oz = (Math.random() - 0.5) * this.tileSize * 0.7;
+
+    tile.position.set(
+      this.exitMesh.position.x + ox,
+      this.exitMesh.position.y + 0.12,
+      this.exitMesh.position.z + oz
+    );
+
+    // face upward (like a floating “square”)
+    tile.rotation.x = -Math.PI / 2;
+
+    // store animation params
+    this._teleportTiles.push({
+      mesh: tile,
+      vy: 0.8 + Math.random() * 0.6, // rise speed
+      life: 0.7 + Math.random() * 0.6, // seconds
+      maxLife: 0, // filled below
+    });
+    this._teleportTiles[this._teleportTiles.length - 1].maxLife =
+      this._teleportTiles[this._teleportTiles.length - 1].life;
+
+    this.root.add(tile);
   }
 }
